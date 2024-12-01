@@ -1,49 +1,24 @@
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const testFile = require('./tests.js');
 const { styleText } = require("util");
 const user = require('./classes/user.js');
+const quiz = require('./classes/quiz.js');
 const crypto = require('crypto');
 
 const app = express();
-const storageLocation = "./storage/"; // Localização da pasta de armazenamento
-const textCodification = "utf8"; // Codificação dos arquivos de texto
 const mongoose = require('mongoose');
 
 mongoose.connect('mongodb+srv://tcc300104:cSR.u4KFAd7q_us@cluster0.pvlxo.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
 
-// Adicionando o middleware CORS para permitir requisições de http://localhost:5173
 app.use(cors());
 //user password = cSR.u4KFAd7q_us
 // Middleware para análise do JSON do corpo da requisição
 app.use(bodyParser.json());
 
-// Variável global para gerenciar o estado dos testes
-global.tests = false;
-
-// Rota para testar se os arquivos necessários estão presentes
-app.get("/testarArquivos", (req, res) => {
-  res.sendFile(__dirname + "/setup.html");
-});
-
-// Rota para configurar e rodar os testes
-app.get("/setupTests", async (req, res) => {
-  const fileToTest = global.tests ? "quizes.json" : "users.json";
-  testFile(storageLocation, fileToTest, textCodification);
-  res.status(200).send("Test Completed");
-});
-
-// Rota para resetar o status dos testes
-app.get("/resetTests", (req, res) => {
-  global.tests = false;
-  res.status(200).send("Tests Reset");
-});
-
 // Rota para criação de usuário
 app.post("/createUser", (req, res) => {
   //Verificação de parâmetros
-  var functionError = false;
   if (!req.body.name || !req.body.email || !req.body.password) {
     res.status(400).send("Missing parameters");
     return;
@@ -57,7 +32,7 @@ app.post("/createUser", (req, res) => {
     //Criando o usuário
     let newUser = new user(req.body);
     newUser.save()
-      .then((result) => {
+      .then(() => {
         res.status(200).send("User Created");
       })
   }).catch((err) => {
@@ -80,7 +55,7 @@ app.post("/updateUser", (req, res) => {
       req.body.password = crypto.createHash('sha256').update(req.body.password).digest('base64');
     }
     user.findOneAndUpdate({ id: req.body.id }, req.body, { new: true })
-      .then((result) => {
+      .then(() => {
         res.status(200).send("User Updated");
       })
       .catch((err) => {
@@ -88,6 +63,84 @@ app.post("/updateUser", (req, res) => {
       })
   });
 });
+
+app.post("/createQuiz", (req, res) => {
+  if (!req.body.name || !req.body.questions || !req.body.description || !req.body.authorId) {
+    res.status(400).send("Missing parameters");
+    return;
+  }
+  let newQuiz = new quiz(req.body);
+  newQuiz.save()
+    .then(() => {
+      res.status(200).send("Quiz Created");
+    })
+    .catch((err) => {
+      res.status(400).send(err.message);
+    });
+});
+
+app.post("/updateQuiz", (req, res) => {
+  if (!req.body._id) {
+    res.status(400).send("Missing parameters");
+    return;
+  }
+  quiz.findOne({ id: req.body.id }).then((result) => {
+    if (!result) {
+      res.status(404).send("Quiz not found");
+      return;
+    }
+    quiz.findOneAndUpdate({
+      id: req.body.id
+    }, req.body, { new: true })
+      .then(() => {
+        res.status(200).send("Quiz Updated");
+      })
+      .catch((err) => {
+        res.status(404).send(err.message);
+      });
+  });
+});
+
+app.post("/deleteQuiz", (req, res) => {
+  if (!req.body.id) {
+    res.status(400).send("Missing parameters");
+    return;
+  }
+  quiz.findOne({ id: req.body.id }).then((result) => {
+    if (!result) {
+      res.status(404).send("Quiz not found");
+      return;
+    }
+    quiz.findOneAndDelete({ id: req.body.id })
+      .then(() => {
+        res.status(200).send("Quiz Deleted");
+      })
+      .catch((err) => {
+        res.status(404).send(err.message);
+      });
+  });
+});
+
+app.get("/getQuiz/:id", (req, res) => {
+  quiz.findOne({ _id: req.params.id }).then((result) => {
+    if (!result) {
+      res.status(404).send("Quiz not found");
+    } else {
+      res.status(200).send(result);
+    }
+  }).catch((err) => {
+    res.status(400).send(err.message);
+  });
+});
+
+app.get("/getQuizzes", (req, res) => {
+  quiz.find().then((result) => {
+    res.status(200).send(result);
+  }).catch((err) => {
+    res.status(400).send(err.message);
+  });
+});
+
 // Rota para exclusão de usuário
 app.post("/deleteUser", (req, res) => {
   if (!req.body.id) {
@@ -100,12 +153,12 @@ app.post("/deleteUser", (req, res) => {
       return;
     }
     user.findOneAndDelete({ _id: req.body.id })
-    .then((result) => {
-      res.status(200).send("User Deleted");
-    })
-    .catch((err) => {
-      res.status(404).send(err.message);
-    });
+      .then(() => {
+        res.status(200).send("User Deleted");
+      })
+      .catch((err) => {
+        res.status(404).send(err.message);
+      });
   });
 });
 
@@ -132,9 +185,12 @@ app.post("/checkPassword", (req, res) => {
 app.get("/getUser/:email", (req, res) => {
   user.findOne({ email: req.params.email }).then((result) => {
     if (!result) {
-      res.status(404).send(err.message);
+      res.status(404).send("User not found");
+    } else {
+      res.status(200).send(result);
     }
-    res.status(200).send(result);
+  }).catch((err) => {
+    res.status(400).send(err.message);
   });
 });
 
