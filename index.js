@@ -31,6 +31,8 @@ app.post("/createUser", (req, res) => {
     req.body.password = crypto.createHash('sha256').update(req.body.password).digest('base64');
     //Criando o usuário
     let newUser = new user(req.body);
+    newUser.score = 0;
+
     newUser.save()
       .then(() => {
         res.status(200).send("User Created");
@@ -42,19 +44,23 @@ app.post("/createUser", (req, res) => {
 
 // Rota para atualização de usuário
 app.post("/updateUser", (req, res) => {
-  if (!req.body._id) {
+  if (!req.body.id) {
     res.status(400).send("Missing parameters");
     return;
   }
-  user.findOne({ id: req.body.id }).then((result) => {
+  user.findOne({ _id: req.body.id }).then((result) => {
     if (!result) {
       res.status(404).send("User not found");
       return;
     }
+    var body = req.body
     if (req.body.password) {
-      req.body.password = crypto.createHash('sha256').update(req.body.password).digest('base64');
+      body.password = crypto.createHash('sha256').update(req.body.password).digest('base64');
     }
-    user.findOneAndUpdate({ id: req.body.id }, req.body, { new: true })
+    else{
+      body.password = result.password;
+    }
+    user.findOneAndUpdate({ _id: req.body.id }, body, { new: true })
       .then(() => {
         res.status(200).send("User Updated");
       })
@@ -80,17 +86,17 @@ app.post("/createQuiz", (req, res) => {
 });
 
 app.post("/updateQuiz", (req, res) => {
-  if (!req.body._id) {
+  if (!req.body.id) {
     res.status(400).send("Missing parameters");
     return;
   }
-  quiz.findOne({ id: req.body.id }).then((result) => {
+  quiz.findOne({ _id: req.body.id }).then((result) => {
     if (!result) {
       res.status(404).send("Quiz not found");
       return;
     }
     quiz.findOneAndUpdate({
-      id: req.body.id
+      _id: req.body.id
     }, req.body, { new: true })
       .then(() => {
         res.status(200).send("Quiz Updated");
@@ -106,12 +112,12 @@ app.post("/deleteQuiz", (req, res) => {
     res.status(400).send("Missing parameters");
     return;
   }
-  quiz.findOne({ id: req.body.id }).then((result) => {
+  quiz.findOne({ _id: req.body.id }).then((result) => {
     if (!result) {
       res.status(404).send("Quiz not found");
       return;
     }
-    quiz.findOneAndDelete({ id: req.body.id })
+    quiz.findOneAndDelete({ _id: req.body.id })
       .then(() => {
         res.status(200).send("Quiz Deleted");
       })
@@ -136,7 +142,9 @@ app.get("/getQuiz/:id", (req, res) => {
 app.get("/getQuizzes", (req, res) => {
   quiz.find().then((result) => {
     res.status(200).send(result);
+
   }).catch((err) => {
+
     res.status(400).send(err.message);
   });
 });
